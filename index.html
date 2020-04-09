@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <title>Minneapolis Landmarks</title>
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <script src="https://api.mapbox.com/mapbox-gl-js/v1.9.1/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v1.9.1/mapbox-gl.css" rel="stylesheet" />
+
+    <style>
+      .map-overlay {
+        font: 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+        position: absolute;
+        width: 30%;
+        top: 0;
+        left: 0;
+        padding: 10px;
+      }
+
+      .map-overlay .map-overlay-inner {
+        background-color: #fff;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+       
+      .map-overlay h2 {
+        line-height: 24px;
+        display: block;
+        margin: 0 0 10px;
+      }
+       
+      .map-overlay .legend .bar {
+        height: 10px;
+        width: 100%;
+        background: linear-gradient(to right, #fca107, #7f3121);
+      }
+       
+      .map-overlay input {
+        background-color: transparent;
+        display: inline-block;
+        width: 100%;
+        position: relative;
+        margin: 0;
+        cursor: ew-resize;
+      }
+
+      .map-overlay .legend .bar {
+        height: 10px;
+        width: 100%;
+        background: linear-gradient(to right, #fca107, #7f3121);
+      }
+
+      .map-overlay-inner button {
+        display: inline-block;
+        width: 20%;
+        height: 25px;
+        border: none;
+        cursor: pointer;
+      }
+       
+      .map-overlay-inner button:focus {
+        outline: none;
+
+      }
+       
+      .map-overlay-inner button:hover {
+        box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.1);
+      }
+
+
+      #buttons {
+        width: 90%;
+        margin: 0% auto;
+        margin-left: 31%;
+      }
+
+
+      .button {
+        display: inline-block;
+        position: relative;
+        cursor: pointer;
+        width: 10%;
+        height: 15px;
+        padding: 8px;
+        border-radius: 3px;
+        margin-top: 10px;
+        font-size: 11px;
+        text-align: center;
+        color: #fff;
+        background: #ee8a65;
+        font-family: sans-serif;
+        font-weight: bold;
+      }
+
+    </style>
+  </head>
+  <body>
+
+    <style type="text/css">
+      body { margin: 0; padding: 0; }
+      #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    </style>
+
+  <div id='map'></div>
+
+  <div class="map-overlay top">
+    <div class="map-overlay-inner">
+      <h2>Google Mobility Data</h2>
+      <p align="justify" style="font-family:Helvetica; font-size:120%; ">As global communities respond to COVID-19, we've heard from public health officials that the same type of aggregated, anonymized insights we use in products such as Google Maps could be helpful as they make critical decisions to combat COVID-19. These Community Mobility Reports aim to provide insights into what has changed in response to policies aimed at combating COVID-19. The reports chart movement trends over time by geography, across different categories of places such as retail and recreation, groceries and pharmacies, parks, transit stations, workplaces, and residential.</p>
+      <label><h3>Legend (decrease of mobility)</h3></label>
+      <div id="swatches"></div>
+      <br>
+      <label><h2 id=variablename></h2></label>
+      <p id = 'explanation' style="font-family:Helvetica; font-size:120%;"></p>
+    </div>
+  </div>
+  
+  <ul id="buttons">
+    <li id="button-retail_and" class="button">Retail & recreation</li>
+    <li id="button-grocery_an" class="button">Grocery</li>
+    <li id="button-parks" class="button">Parks</li>
+    <li id="button-transit_st" class="button">Transit stations</li>
+    <li id="button-workplaces" class="button">Workplaces</li>
+    <li id="button-residentia" class="button">Residential</li>
+  </ul>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1IjoieGlhb2ppYW5nZ2lzIiwiYSI6ImNrNnI5ZzJmcDAxNWszbW9mMjV1bGxsb3oifQ.O2EHW7BWQ3-qjo_u7ddqNA';
+
+    var map = new mapboxgl.Map({
+      container: 'map', // container id
+      style: 'mapbox://styles/mapbox/light-v10', // stylesheet location
+      center: [-112.991001, 40.330879], // starting position [lng, lat]
+      zoom: 2.9 // starting zoom
+    });
+    
+    var hoveredStateId = null;
+
+    var zoomThreshold = 4;
+    var clickedAttr;
+
+    var varNameDict = {'grocery_an': 'Grocery & pharmacy', 'parks': 'Parks','residentia': 'Residential', 'retail_and': 'Retail & recreation','transit_st': 'Transit stations', 'workplaces': 'Workplaces'};
+    var varExplanationDict = {
+        'grocery_an': 'Mobility trends for places like grocery markets, food warehouses, farmers markets, specialty food shops, drug stores, and pharmacies.', 
+        'parks': 'obility trends for places like national parks, public beaches, marinas, dog parks, plazas, and public gardens.',
+        'residentia': 'Mobility trends for places of residence.', 
+        'retail_and': 'Mobility trends for places like restaurants, cafes, shopping centers, theme parks, museums, libraries, and movie theaters.',
+        'transit_st': 'Mobility trends for places like public transport hubs such as subway, bus, and train stations.', 
+        'workplaces': 'Mobility trends for places of work.'};
+
+
+    map.on('load', function() {
+
+      document.getElementById('button-retail_and').style.background = '#ffff00';
+      document.getElementById('button-retail_and').style.color = 'black';
+
+      document.getElementById('variablename').innerHTML = 'Retail & recreation';
+      document.getElementById('explanation').innerHTML = 'Mobility trends for places like restaurants, cafes, shopping centers, theme parks, museums, libraries, and movie theaters.';
+
+      initLayer();
+      addlayer();
+    });
+
+    function hideLayers(){
+      var fields = ['grocery_an', 'parks', 'residentia', 'retail_and', 'transit_st', 'workplaces']
+      for (var i = 0; i < fields.length; i++) {
+        var field = fields[i];
+          map.setLayoutProperty(field+'_st', 'visibility', 'none');
+          map.setLayoutProperty(field+'_ct', 'visibility', 'none');
+      }
+    }
+
+    // first add layer of retail at state and county
+    function initLayer(){
+      map.addSource('mobility_st', {
+        type: 'vector',
+        url: 'mapbox://xiaojianggis.3svahnva'
+      });
+
+      map.addLayer({
+        id: 'retail_and_st',
+        type: 'fill',
+        source: 'mobility_st',
+        'source-layer': 'us-state-mobility-45yamy',
+        'maxzoom': zoomThreshold,
+        // paint: {
+        //   'fill-color': [
+        //     "interpolate",
+        //       ["linear"], 
+        //       ["get", "retail_and"],
+        //        -1, "#dee5e5", 
+        //         -0.5, "#e31a1c", 
+        //         -0.4, "#fd8d3c", 
+        //         -0.3, "#fecc5c",
+        //         0, "#ffffb2",
+        //         1, '#33a02c'
+        //   ],
+        //   'fill-opacity': 0.6
+        // },
+
+
+          paint: {
+            'fill-color': {
+              property: 'retail_and',
+              stops: [
+                [-1, "#dee5e5"], 
+                [-0.5, "#e31a1c"],
+                [-0.4, "#fd8d3c"],
+                [-0.3, "#fecc5c"],
+                [0, "#ffffb2"],
+                [1, '#33a02c']
+              ]
+            },
+
+            'fill-opacity': [
+              'case',
+                ['boolean', ['feature-state', 'hover'],
+                 false
+                ],
+                0.1,
+                0.75
+              ]
+          },
+
+        layout: {}
+      });
+
+
+
+      map.addLayer(
+      {
+      'id': 'counties-highlighted',
+      'type': 'fill',
+      'source': 'mobility_st',
+      'source-layer': 'us-state-mobility-45yamy',
+      'paint': {
+      'fill-outline-color': '#484896',
+      'fill-color': '#6e599f',
+      'fill-opacity': 0.75
+      },
+      'filter': ['in', 'grocery_an', '']
+      },
+      'settlement-label'
+      ); // Place polygon under these labels.
+
+
+
+      map.addSource('mobility_ct', {
+        type: 'vector',
+        url: 'mapbox://xiaojianggis.1ldym0b4'
+      });
+
+      map.addLayer({
+        id: 'retail_and_ct',
+        type: 'fill',
+        source: 'mobility_ct',
+        // source: {
+        //   type: 'vector',
+        //   url: 'mapbox://xiaojianggis.1ldym0b4'
+        // },
+        'source-layer': 'usmobility',
+        'minzoom': zoomThreshold,
+          paint: {
+            'fill-color': {
+              property: 'retail_and',
+              stops: [
+                [-1, "#dee5e5"], 
+                [-0.5, "#e31a1c"],
+                [-0.4, "#fd8d3c"],
+                [-0.3, "#fecc5c"],
+                [0, "#ffffb2"],
+                [1, '#33a02c']
+              ]
+            }
+          },
+        layout: {}
+      });
+
+      map.on('click', function(e) {
+          var features = map.queryRenderedFeatures(e.point, {
+              layers: ['retail_and_ct', 'retail_and_st']
+          });
+          if (!features.length) {
+              return;
+          }
+
+          var feature = features[0];
+          var attributeName = varNameDict.retail_and;
+          var attrExplanation = varExplanationDict.retail_and;
+
+          if(map.getZoom()<zoomThreshold){
+            var popup = new mapboxgl.Popup()
+                .setLngLat(map.unproject(e.point))
+                .setHTML('<p style="font-size:120%"><b>'+ feature.properties.region+'</b></p>' +
+                    '<p>' + attributeName + ': '+ '<b>'+(feature.properties.retail_and*100).toString().substring(0, 3) + '%</b></p>')
+                .addTo(map);
+          } else {
+              var attri_val;
+              if (feature.properties.retail_and < -0.999){
+                attri_val = 'No Data';
+              } else {
+                attri_val = (feature.properties.retail_and*100).toString().substring(0, 3) + '%';
+              }
+
+              var popup = new mapboxgl.Popup()
+                  .setLngLat(map.unproject(e.point))
+                  .setHTML('<h3>'+feature.properties.NAMELSAD+', '+feature.properties.state+'</h3>' + attributeName + 
+                      ': <b>' + attri_val + '</b>')
+                  .addTo(map);
+          }
+          
+          // Run through the selected features and set a filter
+          // to match features with unique FIPS codes to activate
+          // the `counties-highlighted` layer.
+          var filter = features.reduce(
+          function(memo, feature) {
+          memo.push(feature.properties.grocery_an);
+          return memo;
+          },
+          ['in', 'grocery_an']
+          );
+          
+          map.setFilter('counties-highlighted', filter);
+
+      });
+    }
+
+
+    function addlayer(){
+      // if (map.getLayer('retail_and_st')) map.removeLayer('state-data');
+
+      // Line layer to make each state more distinct 
+      var fields = ['grocery_an', 'parks', 'residentia', 'transit_st', 'workplaces']
+
+      for (var i = 0; i < fields.length; i++) {
+        var field = fields[i];
+
+        map.addLayer({
+          id: field+'_ct',
+          type: 'fill',
+          source: 'mobility_ct',
+          // source: {
+          //   type: 'vector',
+          //   url: 'mapbox://xiaojianggis.1ldym0b4'
+          // },
+          'source-layer': 'usmobility',
+          'minzoom': zoomThreshold,
+          paint: {
+            'fill-color': {
+              property: field,
+              stops: [
+                [-1, "#dee5e5"], 
+                [-0.5, "#e31a1c"],
+                [-0.4, "#fd8d3c"],
+                [-0.3, "#fecc5c"],
+                [0, "#ffffb2"],
+                [1, '#33a02c']
+              ]
+            }
+          },
+          layout: {'visibility': 'none'}
+        });
+
+
+        map.addLayer({
+          id: field+'_st',
+          type: 'fill',
+          source: 'mobility_st',
+          // source: {
+          //   type: 'vector',
+          //   url: 'mapbox://xiaojianggis.3svahnva'
+          // },
+          'source-layer': 'us-state-mobility-45yamy',
+          'maxzoom': zoomThreshold,
+          // paint: {
+          //   'fill-color': [
+          //     "interpolate",
+          //       ["linear"], 
+          //       ["get", field],
+          //       -1, "#dee5e5", 
+          //       -0.5, "#e31a1c", 
+          //       -0.4, "#fd8d3c", 
+          //       -0.3, "#fecc5c",
+          //       0, "#ffffb2",
+          //       1, '#33a02c'
+          //   ],
+          //   'fill-opacity': 0.6
+          // },
+
+          paint: {
+            'fill-color': {
+              property: field,
+              stops: [
+                [-1, "#dee5e5"], 
+                [-0.5, "#e31a1c"],
+                [-0.4, "#fd8d3c"],
+                [-0.3, "#fecc5c"],
+                [0, "#ffffb2"],
+                [1, '#33a02c']
+              ]
+            }
+          },
+
+          layout: {'visibility': 'none'}
+        });
+
+      }
+    }
+
+
+    function explainVariable(clickedAttr){
+        if (clickedAttr == 'grocery_an'){
+          document.getElementById('variablename').innerHTML = 'Grocery & pharmacy';
+          document.getElementById('explanation').innerHTML = 'Mobility trends for places like grocery markets, food warehouses, farmers markets, specialty food shops, drug stores, and pharmacies.';
+        } else if (clickedAttr == 'parks'){
+          document.getElementById('variablename').innerHTML = 'Parks';
+          document.getElementById('explanation').innerHTML = 'Mobility trends for places like national parks, public beaches, marinas, dog parks, plazas, and public gardens.';
+        } else if (clickedAttr == 'residentia') {
+          document.getElementById('variablename').innerHTML = 'Residential';
+          document.getElementById('explanation').innerHTML = 'Mobility trends for places of residence.';
+
+        } else if (clickedAttr == 'retail_and') {
+          document.getElementById('variablename').innerHTML = 'Retail & recreation';
+          document.getElementById('explanation').innerHTML = 'Mobility trends for places like restaurants, cafes, shopping centers, theme parks, museums, libraries, and movie theaters.';
+        } else if (clickedAttr == 'transit_st') {
+          document.getElementById('variablename').innerHTML = 'Transit stations';
+          document.getElementById('explanation').innerHTML = 'Mobility trends for places like public transport hubs such as subway, bus, and train stations.';
+        } else if (clickedAttr == 'workplaces') {
+          document.getElementById('variablename').innerHTML = 'Workplaces';
+          document.getElementById('explanation').innerHTML = 'Mobility trends for places of work.';
+        }
+    }
+
+
+    var swatches = document.getElementById('swatches');
+    var labels = document.getElementById("legend-label");
+    var ranges = ['>50%', '40-50%', '30-40%', '0-30%', 'Increase', 'No data'];
+
+    var colors = [
+      '#e31a1c',
+      '#fd8d3c',
+      '#fecc5c',
+      '#ffffb2',
+      '#33a02c',
+      '#dee5e5'
+    ]; 
+
+    
+    for (i = 0; i < ranges.length; i++) {
+        var range = ranges[i];
+        var color = colors[i];
+
+        var swatch = document.createElement("button");
+        swatch.style.backgroundColor = color;
+        swatch.style.fontSize = '12px';
+        swatches.appendChild(swatch);
+        swatch.innerHTML = range;
+    }
+
+    var varname = document.createElement('h3');
+
+    document
+      .getElementById('buttons')
+      .addEventListener('click', function(event) {
+        clickedAttr = event.target.id.substr('button-'.length);
+        explainVariable(clickedAttr);
+        
+        hideLayers();
+        map.setLayoutProperty(clickedAttr+'_st', 'visibility', 'visible');
+        map.setLayoutProperty(clickedAttr+'_ct', 'visibility', 'visible');        
+
+
+        // // When the user moves their mouse over the state-fill layer, we'll update the
+        // // feature state for the feature under the mouse.
+        // map.on('mousemove', clickedAttr+'_st', function(e) {
+        //   if (e.features.length > 0) {
+        //     if (hoveredStateId) {
+        //       map.setFeatureState(
+        //       { source: 'mobility_st', id: hoveredStateId },
+        //       { hover: false }
+        //       );
+        //     }
+        //     hoveredStateId = e.features[0].GEOID;
+        //     map.setFeatureState(
+        //       { source: 'mobility_st', id: hoveredStateId },
+        //       { hover: true }
+        //     );
+        //   }
+        // });
+
+
+        map.on('click', function(e) {
+            var features = map.queryRenderedFeatures(e.point, {
+                layers: [clickedAttr+'_st', clickedAttr+'_ct']
+            });
+            if (!features.length) {
+                return;
+            }
+            var feature = features[0];
+
+            var attributeName = varNameDict[clickedAttr];
+
+            // var popup = new mapboxgl.Popup()
+            //     .setLngLat(map.unproject(e.point))
+            //     .setHTML('<h3>Green View Index value</h3>' +
+            //         '<ul>' +
+            //         attributeName + '<b>' + feature.properties.grocery_an + '</b>' +
+            //         '</ul>')
+            //     .addTo(map);
+
+
+            if(map.getZoom()<zoomThreshold){
+              var popup = new mapboxgl.Popup()
+                  .setLngLat(map.unproject(e.point))
+                  .setHTML('<p style="font-size:120%"><b>'+ feature.properties.region+'</b></p>' +
+                      '<p>' + attributeName + ': '+ '<b>'+(feature.properties[clickedAttr]*100).toString().substring(0, 3) + '%</b></p>')
+                  .addTo(map);
+            } else {
+              var attri_val;
+              if (feature.properties[clickedAttr] < -0.999){
+                attri_val = 'No Data'
+              } else {
+                attri_val = (feature.properties[clickedAttr]*100).toString().substring(0, 3) + '%'
+              }
+
+              var attriIncrease = feature.properties[clickedAttr]*100;
+
+              var popup = new mapboxgl.Popup()
+                  .setLngLat(map.unproject(e.point))
+                  .setHTML('<h3>'+feature.properties.NAMELSAD+', '+feature.properties.state+'</h3>' + attributeName + 
+                      ': <b>' + attri_val + '</b>')
+                  .addTo(map);
+            }
+
+            // Run through the selected features and set a filter
+            // to match features with unique FIPS codes to activate
+            // the `counties-highlighted` layer.
+            var filter = features.reduce(
+            function(memo, feature) {
+            memo.push(feature.properties.grocery_an);
+            return memo;
+            },
+            ['in', 'grocery_an']
+            );
+            
+            map.setFilter('counties-highlighted', filter);
+
+        });
+
+        var activeButton = document.getElementById('button-'+clickedAttr);
+        fields = ['grocery_an', 'parks', 'residentia', 'retail_and', 'transit_st', 'workplaces'];
+        for (var i = 0; i < fields.length; i++) {
+          var buttonid = 'button-' + fields[i];
+          var buttonstyle = document.getElementById(buttonid)
+          buttonstyle.style.background = '#ee8a65';
+          buttonstyle.style.color = '#fff';
+        }
+        activeButton.style.background = " #ffff00";
+        activeButton.style.color = 'black';
+
+      });
+
+
+    //zoom event
+    map.on('zoom', function() {
+      if (map.getZoom() > zoomThreshold) {
+        // stateLegendEl.style.display = 'none';
+        // countyLegendEl.style.display = 'block';
+      } else {
+        // stateLegendEl.style.display = 'block';
+        // countyLegendEl.style.display = 'none';
+      }
+    });
+
+
+  </script>
+  </body>
+</html>

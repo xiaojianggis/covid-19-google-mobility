@@ -1,2 +1,0 @@
--- execute this command to load data to postgis
-osm2pgsql slovakia-latest.osm.bz2 -U postgres -d postgres -P 5432 -W -H localhost -l -s
